@@ -45,6 +45,7 @@ struct MainTabs: View {
                 Label("Settings", systemImage: "gearshape").tag(MainTab.settings)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+            .tint(.white.opacity(0.16)) // selection reads as a soft grey, as in a dark Finder sidebar (accent is white)
         } detail: {
             NavigationStack {
                 switch tab {

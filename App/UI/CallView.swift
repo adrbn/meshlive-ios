@@ -142,7 +142,8 @@ struct CallView: View {
                     if call.offeredType == .video {
                         RoundControl(icon: "phone.fill", label: "Voice", size: 76) { call.accept(as: .voice) }
                     }
-                    RoundControl(icon: call.offeredType == .video ? "video.fill" : "phone.fill", label: "Accept", fill: Palette.callAccept, foreground: .black, size: 76) {
+                    RoundControl(icon: call.offeredType == .video ? "video.fill" : "phone.fill", label: "Accept", fill: .green, // green accepts, as FaceTime
+                                  foreground: .white, size: 76) {
                         call.accept(as: call.offeredType)
                     }
                 }

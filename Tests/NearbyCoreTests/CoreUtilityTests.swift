@@ -37,4 +37,14 @@ final class CoreUtilityTests: XCTestCase {
         XCTAssertEqual(mailbox.offerLatest(6), true); XCTAssertEqual(mailbox.offerLatest(7), false)
         XCTAssertEqual(mailbox.takeAll(), [7])
     }
+
+    func testRenameVerifiedContactKeepsRulesAndOnlyTouchesContacts() throws {
+        let fp = SoftwareSigningIdentity().fingerprint, book = VerifiedContactBook()
+        try book.markVerified(authenticated: fp, confirmed: fp, name: "Asha", method: "qr")
+        try book.rename(fp.hex, to: "Asha (work)")
+        XCTAssertEqual(book.contacts.first?.displayName, "Asha (work)")
+        XCTAssertThrowsError(try book.rename(fp.hex, to: "   "), "blank names are refused")
+        XCTAssertThrowsError(try book.rename(SoftwareSigningIdentity().fingerprint.hex, to: "Bo"), "only verified contacts")
+        XCTAssertEqual(book.contacts.first?.displayName, "Asha (work)")
+    }
 }

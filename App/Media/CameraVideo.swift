@@ -9,6 +9,8 @@ import NearbyMedia
 
 /// Camera -> portrait NV12 -> I420 at the negotiated size -> libvpx VP9 (software; Android accepts only VP9/AV1).
 /// Frames are rotated by the capture connection, so the BTV3 header rotation is 0 and the size is portrait.
+/// When the iPhone is turned sideways the capture turns with it so the picture stays upright; the stream keeps
+/// its portrait size (PixelConversion centre-crops), so receivers see no geometry change.
 final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "org.nearbyintercom.camera", qos: .userInitiated)
@@ -29,6 +31,8 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     private(set) var encodeErrors = 0
     private(set) var running = false
     private var observers: [NSObjectProtocol] = []
+    /// The UI orientation the capture follows (camera queue).
+    private var orientation: UIInterfaceOrientation = .portrait
     /// Never `queue.sync` from main: the camera queue can be inside `startRunning()` for seconds, and a blocked
     /// main queue stops every link pump and heartbeat (measured: a 9 s stall ended an M31 call). Plain reads of
     /// counters are racy but harmless for logging.
@@ -55,6 +59,26 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
     private func observe() {
         guard observers.isEmpty else { return }
         let center = NotificationCenter.default
+        if !ProcessInfo.processInfo.isMacCatalystApp {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            let follow = { [weak self] in
+                // Device landscape-left is UI landscape-right; face up/down and upside down keep the last one.
+                let turned: UIInterfaceOrientation
+                switch UIDevice.current.orientation {
+                case .portrait: turned = .portrait
+                case .landscapeLeft: turned = .landscapeRight
+                case .landscapeRight: turned = .landscapeLeft
+                default: return
+                }
+                guard let self else { return }
+                self.queue.async {
+                    self.orientation = turned
+                    if let connection = self.session.outputs.first?.connection(with: .video) { Self.rotate(connection, to: turned) }
+                }
+            }
+            follow()
+            observers.append(center.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main) { _ in follow() })
+        }
         observers.append(center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] note in
             let error = note.userInfo?[AVCaptureSessionErrorKey] as? NSError
             AppLog.event("camera_error", ["stage": "runtime", "error": "\(error?.domain ?? "?") \(error?.code ?? 0)"])
@@ -106,9 +130,9 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         if let connection = output.connection(with: .video) {
             if ProcessInfo.processInfo.isMacCatalystApp {
                 // Landscape webcam, landscape stream (MediaDefaults): no rotation.
-            } else if #available(iOS 17.0, *) {
-                if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
-            } else if connection.isVideoOrientationSupported { connection.videoOrientation = .portrait }
+            } else {
+                Self.rotate(connection, to: orientation)
+            }
             if connection.isVideoMirroringSupported { connection.isVideoMirrored = front }
         }
         session.commitConfiguration()
@@ -118,6 +142,16 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         let now = ProcessInfo.processInfo.systemUptime
         AppLog.event("camera_running", ["running": "\(session.isRunning)", "front": "\(front)", "preset": session.sessionPreset.rawValue,
                                         "configureMs": "\(Int((configured - started) * 1000))", "startRunningMs": "\(Int((now - configured) * 1000))"])
+    }
+
+    /// Upright frames for a UI orientation (the same mapping serves the capture and the preview).
+    static func rotate(_ connection: AVCaptureConnection, to orientation: UIInterfaceOrientation) {
+        if #available(iOS 17.0, *) {
+            let angle: CGFloat = switch orientation { case .landscapeRight: 0; case .landscapeLeft: 180; case .portraitUpsideDown: 270; default: 90 }
+            if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
+        } else if connection.isVideoOrientationSupported, let o = AVCaptureVideoOrientation(rawValue: orientation.rawValue) {
+            connection.videoOrientation = o
+        }
     }
 
     func requestKeyFrame() { queue.async { self.forceKeyFrame = true } }
@@ -233,5 +267,12 @@ struct CameraPreviewView: UIViewRepresentable {
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        /// Turns with the UI (layout runs on every rotation).
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            if !ProcessInfo.processInfo.isMacCatalystApp, let connection = previewLayer.connection, let o = window?.windowScene?.interfaceOrientation {
+                CameraVideo.rotate(connection, to: o)
+            }
+        }
     }
 }

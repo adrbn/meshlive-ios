@@ -40,7 +40,7 @@ struct MainTabs: View {
         NavigationSplitView {
             List(selection: Binding(get: { tab }, set: { if let new = $0 { tab = new } })) {
                 Label("Live", systemImage: "dot.radiowaves.left.and.right").tag(MainTab.live)
-                Label("Calls", systemImage: "phone").tag(MainTab.calls)
+                Label("Calls", systemImage: "phone").badge(model.unseenMissed).tag(MainTab.calls)
                 Label("Contacts", systemImage: "person.2").tag(MainTab.contacts)
                 Label("Settings", systemImage: "gearshape").tag(MainTab.settings)
             }
@@ -62,7 +62,7 @@ struct MainTabs: View {
             NavigationStack { LiveTab() }
                 .tabItem { Label("Live", systemImage: "dot.radiowaves.left.and.right") }.tag(MainTab.live)
             NavigationStack { CallsTab() }
-                .tabItem { Label("Calls", systemImage: "phone") }.tag(MainTab.calls)
+                .tabItem { Label("Calls", systemImage: "phone") }.badge(model.unseenMissed).tag(MainTab.calls)
             NavigationStack { ContactsTab() }
                 .tabItem { Label("Contacts", systemImage: "person.2") }.tag(MainTab.contacts)
             NavigationStack { SettingsView() }
@@ -295,6 +295,10 @@ struct CallsTab: View {
             if let notice = model.callNotice { NoticeCard(text: notice) { model.callNotice = nil } }
             if showRecent { recent } else { nearby }
         }
+        // Missed calls open Recent, and seeing it clears the badge.
+        .onAppear { if model.unseenMissed > 0 { showRecent = true } }
+        .onChange(of: showRecent) { if $0 { model.markMissedSeen() } }
+        .onChange(of: model.unseenMissed) { if $0 > 0 && showRecent { model.markMissedSeen() } }
         .debugPush("recent-none") { EmptyView() }
         .background(
             Color.clear.confirmationDialog(picked.map { "Call \($0.label.title)" } ?? "Call",
@@ -376,7 +380,8 @@ struct RecentCallRow: View {
     var body: some View {
         let label = PeerLabel(prefix: Data(hex: record.prefixHex) ?? Data(count: 6), contactName: model.contactName(prefixHex: record.prefixHex))
         let text = VStack(alignment: .leading, spacing: 3) {
-            Text(label.title).font(.body.weight(.medium)).foregroundStyle(Palette.ink)
+            // Missed calls in red, as in the iPhone Phone app.
+            Text(label.title).font(.body.weight(.medium)).foregroundStyle(record.direction == .missed ? .red : Palette.ink)
             Text(detail).font(.subheadline).foregroundStyle(Palette.dimInk)
         }
         let callBack = Button { model.callBack(record) } label: {
@@ -390,7 +395,7 @@ struct RecentCallRow: View {
                 VStack(alignment: .leading, spacing: 8) { text; callBack }
             } else {
                 HStack(spacing: 14) {
-                    Image(systemName: icon).foregroundStyle(Palette.dimInk).frame(width: 24).accessibilityHidden(true)
+                    Image(systemName: icon).foregroundStyle(record.direction == .missed ? .red : Palette.dimInk).frame(width: 24).accessibilityHidden(true)
                     text
                     Spacer()
                     callBack
@@ -405,7 +410,7 @@ struct RecentCallRow: View {
         switch record.direction {
         case .outgoing: return "phone.arrow.up.right"
         case .incoming: return "phone.arrow.down.left"
-        case .missed: return "phone.down"
+        case .missed: return "phone.arrow.down.left"
         }
     }
     private var detail: String {
@@ -507,12 +512,15 @@ struct ContactRow: View {
 }
 
 /// Contact info (Android's sheet): name, how and when verified, short and full ID, presence (rotating IDs), Forget.
-/// Rename and Block are Android-only: the iPhone contact book has no rename or block yet.
+/// Block is Android-only: the iPhone contact book has no block yet.
 struct ContactInfoSheet: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
     let contact: VerifiedContact
     @State private var confirmForget = false
+    @State private var renaming = false
+    @State private var newName = ""
+    @State private var renameError: String?
 
     var body: some View {
         NavigationStack {
@@ -548,14 +556,24 @@ struct ContactInfoSheet: View {
                                               isOn: Binding(get: { model.canSeeMe(contact) }, set: { model.setCanSeeMe(contact, $0) }))
                         }
                     }
-                    CapsuleButton(title: "Forget", systemImage: "trash", kind: .dark) { confirmForget = true }
+                    CapsuleButton(title: "Rename", systemImage: "pencil", kind: .dark) { newName = contact.displayName; renaming = true }
                         .padding(.top, 8)
+                    if let renameError { Text(renameError).font(Typo.caption).foregroundStyle(Palette.accent) }
+                    CapsuleButton(title: "Forget", systemImage: "trash", kind: .dark) { confirmForget = true }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 20)
             }
             .background(Palette.ground.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .alert("Rename", isPresented: $renaming) {
+                TextField("Name", text: $newName)
+                Button("Save") {
+                    do { try model.rename(contact, to: newName); renameError = nil; dismiss() }
+                    catch { renameError = "\(error)" }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { Text("Only you see this name.") }
             .alert("Forget \(contact.displayName)?", isPresented: $confirmForget) {
                 Button("Forget", role: .destructive) { model.forget(contact); dismiss() }
                 Button("Cancel", role: .cancel) {}

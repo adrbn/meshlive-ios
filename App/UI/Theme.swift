@@ -126,7 +126,10 @@ struct MonogramView: View {
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
     var body: some View {
         let side = size * min(scale, 1.6)
-        Text(label.monogram)
+        // No name yet: a person glyph, not the handle's first character (which reads as a stray digit).
+        Group {
+            if label.contactName == nil && label.selfName == nil { Image(systemName: "person.fill") } else { Text(label.monogram) }
+        }
             .font(.system(size: side * 0.42, weight: .semibold, design: .rounded))
             .foregroundStyle(Palette.ink)
             .frame(width: side, height: side)

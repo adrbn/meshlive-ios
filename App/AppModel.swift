@@ -149,6 +149,10 @@ final class AppModel: ObservableObject {
     func startVisibleByHandle() { rotating.startVisibleWindow(); refreshAdvertising() }
     /// Recent calls on this phone (newest first); Home shows the last 3.
     @Published var recentCalls: [CallRecord] = CallHistory.all
+    /// Missed calls since Recent was last opened (badge on Calls; this phone only).
+    @Published var missedSince = UserDefaults.standard.object(forKey: "missedSeenAt") as? Date ?? .distantPast
+    var unseenMissed: Int { recentCalls.filter { $0.direction == .missed && $0.at > missedSince }.count }
+    func markMissedSeen() { missedSince = Date(); UserDefaults.standard.set(missedSince, forKey: "missedSeenAt") }
     /// EXPERIMENTAL (Settings > Advanced): help pass streams and calls to others nearby.
     @Published var relayForOthers = AppSettings.relayForOthers { didSet { AppSettings.relayForOthers = relayForOthers } }
     /// EXPERIMENTAL call relay hop (DEBUG launch argument only, like Android's test_private_call_relay).
@@ -543,6 +547,11 @@ final class AppModel: ObservableObject {
         refreshAdvertising()
     }
     @Published var presenceGeneration: UInt32 = 0
+
+    func rename(_ contact: VerifiedContact, to name: String) throws {
+        try book.rename(contact.fingerprintHex, to: name)
+        try saveContacts()
+    }
 
     func forget(_ contact: VerifiedContact) {
         book.forget(contact.fingerprintHex); try? saveContacts()

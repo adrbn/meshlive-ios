@@ -24,15 +24,15 @@ else:
     sources = sorted(p.relative_to(root).as_posix() for d in app_dirs for p in d.rglob("*") if p.suffix in (".swift", ".c"))
 coresources = sorted(p.relative_to(root).as_posix() for p in (root / "Sources/NearbyCore").glob("*.swift"))
 buildfiles, corefiles, children, resources = [], [], [], []
-assets = ["App/Assets.xcassets"] if (root / "App/Assets.xcassets").exists() and not v1 else []
+assets = ["App/Assets.xcassets", "App/AppIcon.icon"] if (root / "App/Assets.xcassets").exists() and not v1 else []
 for path in sources + coresources + ["App/Info.plist", "App/PrivacyInfo.xcprivacy"] + assets:
     ext = Path(path).suffix
-    kind = {".swift":"sourcecode.swift", ".c":"sourcecode.c.c", ".plist":"text.plist.xml", ".xcprivacy":"text.plist.xml", ".xcassets":"folder.assetcatalog"}[ext]
+    kind = {".swift":"sourcecode.swift", ".c":"sourcecode.c.c", ".plist":"text.plist.xml", ".xcprivacy":"text.plist.xml", ".xcassets":"folder.assetcatalog", ".icon":"folder.iconcomposer.icon"}[ext]
     ref = obj(path, f'isa = PBXFileReference; lastKnownFileType = {kind}; path = {quote(path)}; sourceTree = SOURCE_ROOT;')
     children.append(ref)
     if path in sources: buildfiles.append(obj("build:"+path, f'isa = PBXBuildFile; fileRef = {ref};'))
     elif path in coresources: corefiles.append(obj("build:"+path, f'isa = PBXBuildFile; fileRef = {ref};'))
-    elif ext in (".xcprivacy", ".xcassets"): resources.append(obj("build:"+path, f'isa = PBXBuildFile; fileRef = {ref};'))
+    elif ext in (".xcprivacy", ".xcassets", ".icon"): resources.append(obj("build:"+path, f'isa = PBXBuildFile; fileRef = {ref};'))
 product = obj("product", 'isa = PBXFileReference; explicitFileType = wrapper.application; path = NearbyIntercom.app; sourceTree = BUILT_PRODUCTS_DIR;')
 coreproduct = obj("core-product", 'isa = PBXFileReference; explicitFileType = archive.ar; path = libNearbyCore.a; sourceTree = BUILT_PRODUCTS_DIR;')
 core = obj("core-link", f'isa = PBXBuildFile; fileRef = {coreproduct};')

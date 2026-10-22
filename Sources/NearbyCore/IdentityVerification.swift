@@ -149,6 +149,12 @@ public final class VerifiedContactBook: PeerIdentityGate {
         contacts.append(VerifiedContact(fingerprint: confirmed, displayName: name, method: method))
     }
     public func forget(_ fingerprintHex: String) { contacts.removeAll { $0.fingerprintHex == fingerprintHex } }
+    /// Your own label for a verified contact (same rules as a display name).
+    public func rename(_ fingerprintHex: String, to name: String) throws {
+        let name = try IdentityQrCodec.normalizeName(name)
+        guard let i = contacts.firstIndex(where: { $0.fingerprintHex == fingerprintHex }) else { throw ProtocolError.state("Not a verified contact") }
+        contacts[i].displayName = name
+    }
     /// Restores a persisted list (already verified when it was saved).
     public func restore(_ list: [VerifiedContact]) { contacts = list }
     public func reset() { contacts.removeAll() }

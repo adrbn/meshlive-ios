@@ -48,7 +48,7 @@ struct CallView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: controlsVisible)
-        .sheet(isPresented: $showInfo) { NavigationStack { CallInfoSheet(call: call) } }
+        .sheet(isPresented: $showInfo) { NavigationStack { CallInfoSheet(call: call) }.environmentObject(model) }
         .preferredColorScheme(.dark)
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { now in
             // Controls fade out after 4 s during video and come back on a tap.

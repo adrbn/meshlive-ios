@@ -72,13 +72,14 @@ private struct WatchPlayer: View {
             .padding(16)
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showInfo) { NavigationStack { StreamInfoSheet(watch: watch, title: title) } }
+        .sheet(isPresented: $showInfo) { NavigationStack { StreamInfoSheet(watch: watch, title: title) }.environmentObject(model) }
     }
 }
 
 /// Listening to an audio-only stream: black, the radio glyph, the title, "Audio only", the state and Leave.
 /// It keeps playing with the screen locked or MeshLive in the background.
 private struct RadioPlayer: View {
+    @EnvironmentObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var watch: WatchController
     let title: String
@@ -111,7 +112,7 @@ private struct RadioPlayer: View {
             .padding(20)
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showInfo) { NavigationStack { StreamInfoSheet(watch: watch, title: title) } }
+        .sheet(isPresented: $showInfo) { NavigationStack { StreamInfoSheet(watch: watch, title: title) }.environmentObject(model) }
     }
     private var subtitle: String {
         switch watch.radioPreset {

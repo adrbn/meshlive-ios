@@ -174,7 +174,7 @@ struct LiveTab: View {
             .disabled(model.call != nil || model.watch != nil || model.live != nil)
             .accessibilityHint("Broadcast your camera and voice to phones nearby")
         }
-        .fullScreenCover(item: $watching) { WatchView(row: $0) }
+        .fullScreenCover(item: $watching) { WatchView(row: $0).environmentObject(model) }
         .onAppear {
             // DEBUG screenshot aids: the Go live sheet and the radio player (fixture row).
             switch RootView.debugScreenName {
@@ -188,9 +188,10 @@ struct LiveTab: View {
                 .sheet(isPresented: $showGoLive, onDismiss: {
                     if let choice = startAfterSheet { startAfterSheet = nil; model.goLive(audioOnly: choice.audioOnly, preset: choice.preset) }
                 }) {
-                    GoLiveSheet { audioOnly, preset in startAfterSheet = (audioOnly, preset); showGoLive = false }
+                    // Passed explicitly: on the Mac a sheet from a background view does not inherit it (crash on Go live).
+                    GoLiveSheet { audioOnly, preset in startAfterSheet = (audioOnly, preset); showGoLive = false }.environmentObject(model)
                 }
-                .fullScreenCover(item: Binding(get: { model.live }, set: { _ in })) { LivePanel(live: $0) }
+                .fullScreenCover(item: Binding(get: { model.live }, set: { _ in })) { LivePanel(live: $0).environmentObject(model) }
         )
     }
 }
@@ -466,7 +467,7 @@ struct ContactsTab: View {
         }
         .navigationDestination(isPresented: $addContact) { VerifyView() }
         .debugPush("verify") { VerifyView() }
-        .sheet(item: $info) { ContactInfoSheet(contact: $0) }
+        .sheet(item: $info) { ContactInfoSheet(contact: $0).environmentObject(model) }
     }
 }
 

@@ -27,21 +27,48 @@ struct MainTabs: View {
     }
 
     var body: some View {
-        TabView(selection: $tab) {
-            NavigationStack { LiveTab() }.macColumn()
-                .tabItem { Label("Live", systemImage: "dot.radiowaves.left.and.right") }.tag(MainTab.live)
-            NavigationStack { CallsTab() }.macColumn()
-                .tabItem { Label("Calls", systemImage: "phone") }.tag(MainTab.calls)
-            NavigationStack { ContactsTab() }.macColumn()
-                .tabItem { Label("Contacts", systemImage: "person.2") }.tag(MainTab.contacts)
-            NavigationStack { SettingsView() }.macColumn()
-                .tabItem { Label("Settings", systemImage: "gearshape") }.tag(MainTab.settings)
-        }
-        .tint(.white)
+        navigation
         .alert("Erase everything now?", isPresented: $model.askQuickWipe) {
             Button("Erase now", role: .destructive) { model.emergencyWipe() }
             Button("Cancel", role: .cancel) {}
         } message: { Text("This deletes your identity keys, verified contacts and settings. It cannot be undone.") }
+    }
+
+    /// The Mac gets a sidebar (as Mail or System Settings) instead of the iPhone's tab bar.
+    @ViewBuilder private var navigation: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationSplitView {
+            List(selection: Binding(get: { tab }, set: { if let new = $0 { tab = new } })) {
+                Label("Live", systemImage: "dot.radiowaves.left.and.right").tag(MainTab.live)
+                Label("Calls", systemImage: "phone").tag(MainTab.calls)
+                Label("Contacts", systemImage: "person.2").tag(MainTab.contacts)
+                Label("Settings", systemImage: "gearshape").tag(MainTab.settings)
+            }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+        } detail: {
+            NavigationStack {
+                switch tab {
+                case .live: LiveTab()
+                case .calls: CallsTab()
+                case .contacts: ContactsTab()
+                case .settings: SettingsView()
+                }
+            }
+            .id(tab).macColumn().tint(.white)
+        }
+        #else
+        TabView(selection: $tab) {
+            NavigationStack { LiveTab() }
+                .tabItem { Label("Live", systemImage: "dot.radiowaves.left.and.right") }.tag(MainTab.live)
+            NavigationStack { CallsTab() }
+                .tabItem { Label("Calls", systemImage: "phone") }.tag(MainTab.calls)
+            NavigationStack { ContactsTab() }
+                .tabItem { Label("Contacts", systemImage: "person.2") }.tag(MainTab.contacts)
+            NavigationStack { SettingsView() }
+                .tabItem { Label("Settings", systemImage: "gearshape") }.tag(MainTab.settings)
+        }
+        .tint(.white)
+        #endif
     }
 }
 

@@ -33,10 +33,10 @@ extension View {
     func monoList() -> some View { modifier(MonoList()) }
     /// Row background for flat lists.
     func monoRow() -> some View { listRowBackground(Palette.ground).listRowSeparatorTint(Palette.outline) }
-    /// The Mac window is far wider than a phone: keep each tab a phone-width column centred in it.
+    /// Settings-style pages stay a readable width in a wide Mac window (as System Settings does).
     @ViewBuilder func macColumn() -> some View {
         #if targetEnvironment(macCatalyst)
-        frame(maxWidth: 600).frame(maxWidth: .infinity).background(Palette.ground.ignoresSafeArea())
+        frame(maxWidth: 720).frame(maxWidth: .infinity).background(Palette.ground.ignoresSafeArea())
         #else
         self
         #endif
@@ -342,6 +342,8 @@ struct CapsuleButton: View {
     var kind: Kind = .white
     let action: () -> Void
     @Environment(\.isEnabled) private var enabled
+    /// On the Mac the pill fits its label, as Mac buttons do, instead of spanning the window.
+    private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -352,7 +354,7 @@ struct CapsuleButton: View {
                 }
                 Text(title).font(.title3.weight(.semibold))
             }
-            .frame(maxWidth: .infinity).frame(minHeight: 60)
+            .frame(maxWidth: Self.isMac ? nil : .infinity).padding(.horizontal, Self.isMac ? 28 : 0).frame(minHeight: Self.isMac ? 40 : 60)
             .foregroundStyle(kind == .white || kind == .whiteLive ? Color.black : Color.white)
             .background(background, in: Capsule())
             .opacity(enabled ? 1 : 0.45)

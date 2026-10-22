@@ -169,6 +169,12 @@ struct LivePanel: View {
                 }
                 .padding(20)
             }
+            if live.ending {
+                VStack(spacing: 12) {
+                    ProgressView().tint(.white)
+                    Text("Ending live\u{2026}").font(Typo.secondary).foregroundStyle(.white)
+                }
+            }
             VStack {
                 HStack {
                     if !live.state.isEmpty {
@@ -194,6 +200,7 @@ struct LivePanel: View {
                 }
                 .padding(.vertical, 20).frame(maxWidth: .infinity)
                 .background(LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom).ignoresSafeArea())
+                .opacity(live.ending ? 0 : 1).disabled(live.ending)
             }
             .padding(.horizontal, 16)
         }

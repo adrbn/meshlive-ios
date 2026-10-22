@@ -58,7 +58,10 @@ struct RootView: View {
                 EmptyState(icon: "key.slash", title: "Identity unavailable", message: error)
             } else {
                 MainTabs(initial: initialTab)
-                    .fullScreenCover(item: Binding(get: { model.call }, set: { _ in })) { call in CallView(call: call) }
+                    .fullScreenCover(item: Binding(get: { model.call }, set: { _ in })) { call in
+                        // Passed explicitly: on the Mac this cover is hosted outside the window's environment (crash on incoming call).
+                        CallView(call: call).environmentObject(model)
+                    }
             }
         }
         .tint(Palette.accent)

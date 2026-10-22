@@ -83,7 +83,12 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         session.sessionPreset = .vga640x480
         session.inputs.forEach(session.removeInput)
         session.outputs.forEach(session.removeOutput)
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: front ? .front : .back),
+        // A Mac's webcam has no front/back position, and the default may be a virtual camera app:
+        // prefer Apple's built-in camera there, then the default.
+        let macCamera = { AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .unspecified)
+            .devices.first { $0.manufacturer == "Apple Inc." } ?? AVCaptureDevice.default(for: .video) }
+        guard let device = ProcessInfo.processInfo.isMacCatalystApp ? macCamera()
+                : AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: front ? .front : .back),
               let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) else {
             session.commitConfiguration(); AppLog.event("camera_error", ["stage": "input"])
             DispatchQueue.main.async { self.onFailure?("No camera available") }; return
@@ -99,7 +104,9 @@ final class CameraVideo: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate 
         }
         session.addOutput(output)
         if let connection = output.connection(with: .video) {
-            if #available(iOS 17.0, *) {
+            if ProcessInfo.processInfo.isMacCatalystApp {
+                // Landscape webcam, landscape stream (MediaDefaults): no rotation.
+            } else if #available(iOS 17.0, *) {
                 if connection.isVideoRotationAngleSupported(90) { connection.videoRotationAngle = 90 }
             } else if connection.isVideoOrientationSupported { connection.videoOrientation = .portrait }
             if connection.isVideoMirroringSupported { connection.isVideoMirrored = front }

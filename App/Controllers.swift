@@ -6,9 +6,14 @@ import NearbyMedia
 #endif
 
 /// Default video for user calls and streams (user decision 2026-10-10, as Android): 426x240 at 15 FPS, 200 kbps,
-/// portrait on the iPhone (240x426). The resolution ladder steps down from it on weak links.
+/// portrait on the iPhone (240x426), landscape on the Mac, whose webcam is landscape and never rotates.
+/// The resolution ladder steps down from it on weak links.
 enum MediaDefaults {
+    #if targetEnvironment(macCatalyst)
+    static let width = 426, height = 240, fps = 15, videoKbps = 200
+    #else
     static let width = 240, height = 426, fps = 15, videoKbps = 200
+    #endif
 }
 
 /// Remote video decode on a serial queue; decode failures ask the sender for a keyframe (rate-limited).
@@ -794,6 +799,8 @@ final class LiveController: ObservableObject {
     weak var model: AppModel?
     let transport: MeshTransport
     @Published var running = false
+    /// Set by `stop()` while viewers get the end of stream (2.5 s), so the panel says so instead of going black.
+    @Published var ending = false
     @Published var paused = false
     @Published var viewers: [String] = []
     @Published var state = ""
@@ -979,7 +986,7 @@ final class LiveController: ObservableObject {
 
     func stop() {
         guard running else { model?.liveFinished(self); return }
-        running = false
+        running = false; ending = true
         for (_, s) in sessions { s.engine.endStream(); s.driver.pump() }
         camera?.stop(); camera = nil
         audio?.stop(); audio = nil

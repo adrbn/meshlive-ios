@@ -63,7 +63,7 @@ for name in ["Debug", "Release"]:
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS":"DEBUG" if name == "Debug" else "",
         "ASSETCATALOG_COMPILER_APPICON_NAME":"AppIcon" if assets else "",
         # The Mac app is the same app built with Mac Catalyst (Apple silicon only, see Scripts/prepare-*.sh).
-        "SUPPORTS_MACCATALYST":"YES", '"TARGETED_DEVICE_FAMILY[sdk=macosx*]"':"2", '"ARCHS[sdk=macosx*]"':"arm64",
+        "SUPPORTS_MACCATALYST":"YES", '"TARGETED_DEVICE_FAMILY[sdk=macosx*]"':"6", '"ARCHS[sdk=macosx*]"':"arm64",
     }
     device_headers, simulator_headers, mac_headers = (["$(inherited)", "$(SRCROOT)/Sources/CNearbyVPX/include"] for _ in range(3))
     if opus.exists():

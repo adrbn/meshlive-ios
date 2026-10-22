@@ -132,6 +132,7 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        if central === beaconCentral { beaconSeen(peripheral, rssi: RSSI.intValue); return }
         var announcement: DiscoveryAnnouncement?
         var iPhone = false
         if let mfr = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data {
@@ -186,16 +187,66 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
         guard peripheralReady else { return }
         peripheralManager.stopAdvertising(); advertisingUUID = nil
         guard let wanted = wantedAdvertisement else { return }
-        var data: [String: Any] = [CBAdvertisementDataServiceUUIDsKey: [CBUUID(string: wanted.uuid)]]
-        peripheralManager.startAdvertising(data)
+        let uuid = beaconMode ? MeshUUIDs.backgroundBeacon : wanted.uuid
+        peripheralManager.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [CBUUID(string: uuid)]])
         advertisingUUID = wanted.uuid
         let kind = CompactAnnouncement.decode(wanted.uuid, acceptRotating: true).map { $0.isStreamOffer ? "stream_offer" : $0.isPrivateCallOffer ? "call_offer" : "viewer_request" } ?? "?"
-        AppLog.event("advertise", ["uuid": wanted.uuid, "kind": kind, "localName": wanted.name.isEmpty ? "none" : "set"])
+        AppLog.event("advertise", ["uuid": wanted.uuid, "kind": kind, "localName": wanted.name.isEmpty ? "none" : "set", "beacon": "\(beaconMode)"])
+    }
+
+    // MARK: Background beacon (EXPERIMENTAL, Apple devices only)
+
+    /// Backgrounded iPhone: advertise the fixed beacon in place of the compact UUID, and let the GATT
+    /// announcement characteristic answer with the compact UUID it stands for.
+    var beaconMode = false { didSet { if beaconMode != oldValue { applyAdvertisement() } } }
+    /// Also scan for beacons (a second manager: the main scan has no filter, the beacon needs an exact one),
+    /// read each beaconing phone's announcement once a minute, and list it like an advertised row.
+    var beaconScan = false { didSet { if beaconScan != oldValue { updateBeaconScan() } } }
+    private var beaconCentral: CBCentralManager?
+    private var beaconAnnouncements: [UUID: (announcement: DiscoveryAnnouncement, readAt: TimeInterval)] = [:]
+    private var beaconReads: [UUID: CBPeripheral] = [:]
+
+    private func updateBeaconScan() {
+        if beaconScan && beaconCentral == nil { beaconCentral = CBCentralManager(delegate: self, queue: .main); return }
+        guard let beaconCentral, beaconCentral.state == .poweredOn else { return }
+        if beaconScan {
+            beaconCentral.scanForPeripherals(withServices: [CBUUID(string: MeshUUIDs.backgroundBeacon)],
+                                             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+        } else { beaconCentral.stopScan() }
+    }
+
+    private func beaconSeen(_ seen: CBPeripheral, rssi: Int) {
+        let id = seen.identifier, now = ProcessInfo.processInfo.systemUptime
+        if let cached = beaconAnnouncements[id], now - cached.readAt < 60 {
+            if knownPeripherals[id] == nil { knownPeripherals[id] = central.retrievePeripherals(withIdentifiers: [id]).first }
+            if table.observe(handle: id, announcement: cached.announcement, rssi: rssi, isIPhone: true, now: now).listChanged { onPeersChanged?() }
+            return
+        }
+        // The main manager connects (it owns calls); the beacon manager only scans.
+        guard centralReady, beaconReads[id] == nil, attempts[id] == nil, clientLinks[id] == nil,
+              let peripheral = central.retrievePeripherals(withIdentifiers: [id]).first else { return }
+        beaconReads[id] = peripheral
+        peripheral.delegate = self
+        AppLog.event("beacon", ["stage": "read_start", "rssi": "\(rssi)"])
+        central.connect(peripheral, options: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.endBeaconRead(id, nil) }
+    }
+
+    private func endBeaconRead(_ id: UUID, _ announcement: DiscoveryAnnouncement?) {
+        guard let peripheral = beaconReads.removeValue(forKey: id) else { return }
+        if attempts[id] == nil && clientLinks[id] == nil { central.cancelPeripheralConnection(peripheral) }
+        AppLog.event("beacon", ["stage": announcement == nil ? "read_failed" : "read", "prefix": announcement?.prefixHex ?? "-"])
+        guard let announcement else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        beaconAnnouncements[id] = (announcement, now)
+        knownPeripherals[id] = peripheral
+        if table.observe(handle: id, announcement: announcement, rssi: -70, isIPhone: true, now: now).listChanged { onPeersChanged?() }
     }
 
     // MARK: Central state
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        if central === beaconCentral { updateBeaconScan(); return }
         AppLog.event("radio_state", ["role": "central", "state": "\(central.state.rawValue)"])
         switch central.state {
         case .poweredOn:
@@ -226,7 +277,8 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
         peripheral.removeAllServices()
         let psmCharacteristic = CBMutableCharacteristic(type: CBUUID(string: MeshUUIDs.psmCharacteristic), properties: [.read], value: nil, permissions: [.readable])
         let control = CBMutableService(type: CBUUID(string: MeshUUIDs.controlService), primary: true)
-        control.characteristics = [psmCharacteristic]
+        let announcement = CBMutableCharacteristic(type: CBUUID(string: MeshUUIDs.announcementCharacteristic), properties: [.read], value: nil, permissions: [.readable])
+        control.characteristics = [psmCharacteristic, announcement]
         let write = CBMutableCharacteristic(type: CBUUID(string: MeshUUIDs.gattWrite), properties: [.write, .writeWithoutResponse], value: nil, permissions: [.writeable])
         let notify = CBMutableCharacteristic(type: CBUUID(string: MeshUUIDs.gattNotify), properties: [.notify], value: nil, permissions: [.readable])
         notifyCharacteristic = notify
@@ -259,6 +311,16 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
+        if request.characteristic.uuid == CBUUID(string: MeshUUIDs.announcementCharacteristic) {
+            // Only while beaconing, and only what the foreground advertisement would have shown anyway.
+            guard beaconMode, let uuid = wantedAdvertisement.flatMap({ UUID(uuidString: $0.uuid) }), request.offset == 0 else {
+                peripheral.respond(to: request, withResult: .readNotPermitted); return
+            }
+            request.value = withUnsafeBytes(of: uuid.uuid) { Data($0) }
+            peripheral.respond(to: request, withResult: .success)
+            AppLog.event("beacon", ["stage": "served"])
+            return
+        }
         guard request.characteristic.uuid == CBUUID(string: MeshUUIDs.psmCharacteristic), !psmValue.isEmpty else {
             peripheral.respond(to: request, withResult: .readNotPermitted); return
         }
@@ -378,6 +440,7 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        if beaconReads[peripheral.identifier] != nil { peripheral.discoverServices([CBUUID(string: MeshUUIDs.controlService)]); return }
         guard let attempt = attempts[peripheral.identifier] else { central.cancelPeripheralConnection(peripheral); return }
         AppLog.event("connect", ["stage": "connected", "transport": attempt.transport.rawValue])
         attempt.stage = "services"
@@ -386,16 +449,25 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        endBeaconRead(peripheral.identifier, nil)
         failAttempt(peripheral.identifier, "Could not connect: \(error?.localizedDescription ?? "unknown")")
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        endBeaconRead(peripheral.identifier, nil)
         AppLog.event("disconnect", ["error": error?.localizedDescription ?? "none", "hadClientLink": "\(clientLinks[peripheral.identifier] != nil)"])
         failAttempt(peripheral.identifier, "Disconnected during setup")
         if let link = clientLinks.removeValue(forKey: peripheral.identifier) { link.fail("Bluetooth link lost") }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        if beaconReads[peripheral.identifier] != nil {
+            guard let service = peripheral.services?.first(where: { $0.uuid == CBUUID(string: MeshUUIDs.controlService) }) else {
+                endBeaconRead(peripheral.identifier, nil); return
+            }
+            peripheral.discoverCharacteristics([CBUUID(string: MeshUUIDs.announcementCharacteristic)], for: service)
+            return
+        }
         guard let attempt = attempts[peripheral.identifier] else { return }
         let serviceId = CBUUID(string: attempt.transport == .l2cap ? MeshUUIDs.controlService : MeshUUIDs.gattDataService)
         guard error == nil, let service = peripheral.services?.first(where: { $0.uuid == serviceId }) else {
@@ -408,6 +480,13 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        if beaconReads[peripheral.identifier] != nil {
+            guard let c = service.characteristics?.first(where: { $0.uuid == CBUUID(string: MeshUUIDs.announcementCharacteristic) }) else {
+                endBeaconRead(peripheral.identifier, nil); return
+            }
+            peripheral.readValue(for: c)
+            return
+        }
         guard let attempt = attempts[peripheral.identifier] else { return }
         let characteristics = service.characteristics ?? []
         if attempt.transport == .l2cap {
@@ -446,6 +525,12 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if characteristic.uuid == CBUUID(string: MeshUUIDs.gattNotify) {
             if let value = characteristic.value { clientLinks[peripheral.identifier]?.received(value) }
+            return
+        }
+        if characteristic.uuid == CBUUID(string: MeshUUIDs.announcementCharacteristic) {
+            let value = characteristic.value ?? Data()
+            let uuid = value.count == 16 ? NSUUID(uuidBytes: [UInt8](value)).uuidString : ""
+            endBeaconRead(peripheral.identifier, error == nil ? CompactAnnouncement.decode(uuid, acceptRotating: acceptRotating) : nil)
             return
         }
         guard characteristic.uuid == CBUUID(string: MeshUUIDs.psmCharacteristic), attempts[peripheral.identifier] != nil else { return }

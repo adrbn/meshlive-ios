@@ -62,6 +62,7 @@ final class Automation {
         if let available = args["Available"] { model?.availableForCalls = available == "1" }
         if let rot = args["RotatingIds"] { model?.rotatingIds = rot == "1" }
         if let fec = args["CallAudioFec"] { AppSettings.callAudioFec = fec == "1" }
+        if let bg = args["BackgroundReachable"] { AppSettings.backgroundReachable = bg == "1"; model?.radio.beaconScan = bg == "1" }
         if let ladder = args["ResolutionLadder"] { AppSettings.resolutionLadder = ladder == "1" }
         if args["RequestPermissions"] == "1" { MediaPermissions.request(video: true, context: "launch") { _, _ in } }
         if args["Relay"] == "1" { model?.relayForOthers = true }

@@ -192,6 +192,12 @@ struct AppSettings {
         get { d.bool(forKey: "experimentalCallAudioFec") }
         set { d.set(newValue, forKey: "experimentalCallAudioFec") }
     }
+    /// EXPERIMENTAL background reachability (off): a backgrounded iPhone advertises the beacon, and this device
+    /// looks for other devices' beacons (Apple devices only; Android cannot read Apple's overflow area).
+    static var backgroundReachable: Bool {
+        get { d.bool(forKey: "experimentalBackgroundReachable") }
+        set { d.set(newValue, forKey: "experimentalBackgroundReachable") }
+    }
     /// EXPERIMENTAL rotating discovery IDs (off): call-ready presence uses a 15-minute rotating ID.
     static var rotatingIds: Bool {
         get { d.bool(forKey: "experimentalRotatingIds") }

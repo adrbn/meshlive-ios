@@ -273,6 +273,7 @@ final class AppModel: ObservableObject {
         startHealthMonitoring()
         radio.start()
         radio.setScanning(true)
+        radio.beaconScan = AppSettings.backgroundReachable
         pruneTimer?.invalidate()
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.radio.prune(olderThan: 8) }
         refreshAdvertising()
@@ -305,12 +306,19 @@ final class AppModel: ObservableObject {
             AppLog.event("app_state", ["state": "background_call", "video": "\(call.cameraOn)"])
             call.enterBackground()
             radio.pauseDiscovery()
+        } else if AppSettings.backgroundReachable && availableForCalls {
+            // Experimental: still reachable for calls from Apple devices nearby (the beacon); a call rings as an alert.
+            AppLog.event("app_state", ["state": "background_beacon"])
+            radio.setScanning(false); radio.beaconScan = false
+            refreshAdvertising()
+            radio.beaconMode = true
         } else {
             radio.stopAll()
         }
     }
 
     func enterForeground() {
+        radio.beaconMode = false
         CallNotifier.shared.clear()
         configureCallAlerts()
         call?.enterForeground()

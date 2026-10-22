@@ -10,6 +10,12 @@ public enum MeshUUIDs {
     public static let gattWrite = "C8D5A103-9F88-4F65-A03D-7F5A2FB921FA"
     public static let gattNotify = "C8D5A104-9F88-4F65-A03D-7F5A2FB921FA"
     public static let gattDataService = "C8D5A105-9F88-4F65-A03D-7F5A2FB921FA"
+    /// iPhone and Mac only, EXPERIMENTAL (not Android's wire format): the fixed UUID a backgrounded iPhone advertises.
+    /// iOS moves a background app's service UUIDs to Apple's overflow area, which only a scanner filtering on that
+    /// exact UUID sees, so the per-phone compact UUID cannot be found there.
+    public static let backgroundBeacon = "C8D5A1B0-9F88-4F65-A03D-7F5A2FB921FA"
+    /// On the control service, readable while the beacon is on: the 16-byte compact UUID the phone would advertise.
+    public static let announcementCharacteristic = "C8D5A1B1-9F88-4F65-A03D-7F5A2FB921FA"
     public static let meshManufacturerId: UInt16 = 0xFFFF
 
     public static func encodePSM(_ psm: UInt16) throws -> Data {

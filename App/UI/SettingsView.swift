@@ -245,6 +245,11 @@ struct ExperimentsView: View {
                                   info: "Experimental. Adds Opus in-band error correction to call audio, so a lost packet can be rebuilt from the next one.",
                                   isOn: Binding(get: { AppSettings.callAudioFec }, set: { AppSettings.callAudioFec = $0; model.objectWillChange.send() }))
                 CardDivider()
+                SettingsToggleRow(icon: "moon.zzz", title: "Reachable in the background",
+                                  info: "Experimental. With MeshLive in the background, iPhones and Macs nearby can still call this iPhone, and you get a notification. Android phones cannot see it, and a closed app cannot ring.",
+                                  isOn: Binding(get: { AppSettings.backgroundReachable },
+                                                set: { AppSettings.backgroundReachable = $0; model.radio.beaconScan = $0; model.objectWillChange.send() }))
+                CardDivider()
                 SettingsToggleRow(icon: "forward.end", title: "Relay: slow viewers skip to keyframes",
                                   info: "Used when Relay video for others is on. A phone you pass a stream to that cannot keep up skips stale video to the next keyframe and keeps the sound, instead of being dropped.",
                                   isOn: Binding(get: { AppSettings.relayChildMediaAge }, set: { AppSettings.relayChildMediaAge = $0; model.objectWillChange.send() }))

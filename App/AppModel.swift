@@ -283,6 +283,8 @@ final class AppModel: ObservableObject {
     /// bluetooth-central/peripheral keep its link and audio session running), with this phone's video off.
     /// Everything else stops; foregrounding restarts discovery.
     func enterBackground() {
+        // macOS does not suspend apps: a hidden or minimized Mac window stays reachable, and a call rings as an alert.
+        if ProcessInfo.processInfo.isMacCatalystApp { AppLog.event("app_state", ["state": "background_mac"]); return }
         // An audio-only stream keeps playing with the screen locked or the app in the background (audio and
         // bluetooth-central background modes); its link stays, discovery pauses.
         if let watch, watch.isRadio, watch.ended == nil, call == nil {

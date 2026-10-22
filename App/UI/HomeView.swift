@@ -37,7 +37,7 @@ struct MainTabs: View {
     /// The Mac gets a sidebar (as Mail or System Settings) instead of the iPhone's tab bar.
     @ViewBuilder private var navigation: some View {
         #if targetEnvironment(macCatalyst)
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: .constant(.all)) {
             List(selection: Binding(get: { tab }, set: { if let new = $0 { tab = new } })) {
                 Label("Live", systemImage: "dot.radiowaves.left.and.right").tag(MainTab.live)
                 Label("Calls", systemImage: "phone").badge(model.unseenMissed).tag(MainTab.calls)
@@ -46,6 +46,7 @@ struct MainTabs: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
             .tint(.white.opacity(0.16)) // selection reads as a soft grey, as in a dark Finder sidebar (accent is white)
+            .alwaysOpenSidebar()
         } detail: {
             NavigationStack {
                 switch tab {
@@ -584,5 +585,12 @@ struct ContactInfoSheet: View {
     private func grouped(_ hex: String) -> String {
         let chars = Array(hex.uppercased())
         return stride(from: 0, to: chars.count, by: 4).map { String(chars[$0..<min($0 + 4, chars.count)]) }.joined(separator: " ")
+    }
+}
+
+private extension View {
+    /// Four rows, so the Mac sidebar stays open: without a title bar a collapsed one had no way back.
+    @ViewBuilder func alwaysOpenSidebar() -> some View {
+        if #available(iOS 17.0, *) { toolbar(removing: .sidebarToggle) } else { self }
     }
 }

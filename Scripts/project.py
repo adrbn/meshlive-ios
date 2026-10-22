@@ -64,6 +64,8 @@ for name in ["Debug", "Release"]:
         "ASSETCATALOG_COMPILER_APPICON_NAME":"AppIcon" if assets else "",
         # The Mac app is the same app built with Mac Catalyst (Apple silicon only, see Scripts/prepare-*.sh).
         "SUPPORTS_MACCATALYST":"YES", '"TARGETED_DEVICE_FAMILY[sdk=macosx*]"':"6", '"ARCHS[sdk=macosx*]"':"arm64",
+        # Finder, the Dock and permission prompts name a Mac app after its file: MeshLive.app (module name unchanged).
+        '"PRODUCT_NAME[sdk=macosx*]"':"MeshLive", "PRODUCT_MODULE_NAME":"NearbyIntercom",
     }
     device_headers, simulator_headers, mac_headers = (["$(inherited)", "$(SRCROOT)/Sources/CNearbyVPX/include"] for _ in range(3))
     if opus.exists():
@@ -77,7 +79,7 @@ for name in ["Debug", "Release"]:
     settings['"HEADER_SEARCH_PATHS[sdk=macosx*]"'] = " ".join(mac_headers)
     values = " ".join(f'{k} = {quote(v)};' for k,v in settings.items())
     configs.append(obj("config:"+name, f'isa = XCBuildConfiguration; name = {name}; buildSettings = {{ {values} }};'))
-    ca = {k:v for k,v in settings.items() if k not in ["INFOPLIST_FILE", "SWIFT_OBJC_BRIDGING_HEADER", "PRODUCT_BUNDLE_IDENTIFIER"]}
+    ca = {k:v for k,v in settings.items() if k not in ["INFOPLIST_FILE", "SWIFT_OBJC_BRIDGING_HEADER", "PRODUCT_BUNDLE_IDENTIFIER", '"PRODUCT_NAME[sdk=macosx*]"']}
     ca.update(PRODUCT_NAME="NearbyCore", PRODUCT_MODULE_NAME="NearbyCore", DEFINES_MODULE="YES", SKIP_INSTALL="YES", SWIFT_INSTALL_OBJC_HEADER="NO", MACH_O_TYPE="staticlib")
     corevalues = " ".join(f'{k} = {quote(v)};' for k,v in ca.items())
     coreconfigs.append(obj("core-config:"+name, f'isa = XCBuildConfiguration; name = {name}; buildSettings = {{ {corevalues} }};'))

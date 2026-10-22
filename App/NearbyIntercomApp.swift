@@ -10,6 +10,13 @@ struct NearbyIntercomApp: App {
             RootView()
                 .environmentObject(model)
                 .onAppear {
+                    #if targetEnvironment(macCatalyst)
+                    // No title bar or toolbar: screens draw their own titles, and in full screen the bar covered the call.
+                    for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+                        scene.titlebar?.titleVisibility = .hidden
+                        scene.titlebar?.toolbar = nil
+                    }
+                    #endif
                     model.start()
                     model.configureCallAlerts()
                     #if DEBUG

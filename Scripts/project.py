@@ -62,15 +62,19 @@ for name in ["Debug", "Release"]:
         "DEBUG_INFORMATION_FORMAT":"dwarf", "CLANG_ENABLE_MODULES":"YES", "CLANG_C_LANGUAGE_STANDARD":"gnu11",
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS":"DEBUG" if name == "Debug" else "",
         "ASSETCATALOG_COMPILER_APPICON_NAME":"AppIcon" if assets else "",
+        # The Mac app is the same app built with Mac Catalyst (Apple silicon only, see Scripts/prepare-*.sh).
+        "SUPPORTS_MACCATALYST":"YES", '"TARGETED_DEVICE_FAMILY[sdk=macosx*]"':"2", '"ARCHS[sdk=macosx*]"':"arm64",
     }
-    device_headers, simulator_headers = ["$(inherited)", "$(SRCROOT)/Sources/CNearbyVPX/include"], ["$(inherited)", "$(SRCROOT)/Sources/CNearbyVPX/include"]
+    device_headers, simulator_headers, mac_headers = (["$(inherited)", "$(SRCROOT)/Sources/CNearbyVPX/include"] for _ in range(3))
     if opus.exists():
         device_headers.append("$(SRCROOT)/Vendor/Opus.xcframework/ios-arm64/Headers")
         simulator_headers.append("$(SRCROOT)/Vendor/Opus.xcframework/ios-arm64_x86_64-simulator/Headers")
+        mac_headers.append("$(SRCROOT)/Vendor/Opus.xcframework/ios-arm64-maccatalyst/Headers")
     # VPX headers (with their module map) are provided by Xcode's XCFramework processing; adding them
     # here as well would define module VPX twice.
     settings['"HEADER_SEARCH_PATHS[sdk=iphoneos*]"'] = " ".join(device_headers)
     settings['"HEADER_SEARCH_PATHS[sdk=iphonesimulator*]"'] = " ".join(simulator_headers)
+    settings['"HEADER_SEARCH_PATHS[sdk=macosx*]"'] = " ".join(mac_headers)
     values = " ".join(f'{k} = {quote(v)};' for k,v in settings.items())
     configs.append(obj("config:"+name, f'isa = XCBuildConfiguration; name = {name}; buildSettings = {{ {values} }};'))
     ca = {k:v for k,v in settings.items() if k not in ["INFOPLIST_FILE", "SWIFT_OBJC_BRIDGING_HEADER", "PRODUCT_BUNDLE_IDENTIFIER"]}

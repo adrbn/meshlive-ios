@@ -37,6 +37,8 @@ build iphoneos-arm64 arm64-darwin-gcc "-miphoneos-version-min=16.0 -O2"
 build iphonesimulator-arm64 generic-gnu "-O2" "$(xcrun --sdk iphonesimulator --find clang) -target arm64-apple-ios16.0-simulator -isysroot $sim_sdk"
 build iphonesimulator-x86_64 generic-gnu "-O2" "$(xcrun --sdk iphonesimulator --find clang) -target x86_64-apple-ios16.0-simulator -isysroot $sim_sdk"
 build macos-arm64 arm64-darwin24-gcc "-mmacosx-version-min=13.0 -O2"
+# Mac Catalyst (the Mac app), Apple silicon only: the macOS NEON build retargeted to iOS-on-Mac.
+LDFLAGS="-target arm64-apple-ios16.0-macabi" build maccatalyst-arm64 arm64-darwin24-gcc "-target arm64-apple-ios16.0-macabi -O2"
 headers="$root/headers"; rm -rf "$headers"; mkdir -p "$headers/vpx"
 cp "$src"/vpx/vpx_codec.h "$src"/vpx/vpx_decoder.h "$src"/vpx/vpx_encoder.h "$src"/vpx/vpx_frame_buffer.h \
    "$src"/vpx/vpx_image.h "$src"/vpx/vpx_integer.h "$src"/vpx/vp8.h "$src"/vpx/vp8cx.h "$src"/vpx/vp8dx.h \
@@ -51,6 +53,7 @@ xcodebuild -create-xcframework \
     -library "$root/iphoneos-arm64/libvpx.a" -headers "$headers" \
     -library "$root/simulator/libvpx.a" -headers "$headers" \
     -library "$root/macos-arm64/libvpx.a" -headers "$headers" \
+    -library "$root/maccatalyst-arm64/libvpx.a" -headers "$headers" \
     -output Vendor/VPX.xcframework
 cp "$src/LICENSE" Vendor/LIBVPX-LICENSE
 cp "$src/PATENTS" Vendor/LIBVPX-PATENTS

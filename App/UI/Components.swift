@@ -33,6 +33,14 @@ extension View {
     func monoList() -> some View { modifier(MonoList()) }
     /// Row background for flat lists.
     func monoRow() -> some View { listRowBackground(Palette.ground).listRowSeparatorTint(Palette.outline) }
+    /// The Mac window is far wider than a phone: keep each tab a phone-width column centred in it.
+    @ViewBuilder func macColumn() -> some View {
+        #if targetEnvironment(macCatalyst)
+        frame(maxWidth: 600).frame(maxWidth: .infinity).background(Palette.ground.ignoresSafeArea())
+        #else
+        self
+        #endif
+    }
 }
 
 /// Section footer text for flat lists (footnote, grey): plain lists do not style footers.

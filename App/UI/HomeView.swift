@@ -28,13 +28,13 @@ struct MainTabs: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            NavigationStack { LiveTab() }
+            NavigationStack { LiveTab() }.macColumn()
                 .tabItem { Label("Live", systemImage: "dot.radiowaves.left.and.right") }.tag(MainTab.live)
-            NavigationStack { CallsTab() }
+            NavigationStack { CallsTab() }.macColumn()
                 .tabItem { Label("Calls", systemImage: "phone") }.tag(MainTab.calls)
-            NavigationStack { ContactsTab() }
+            NavigationStack { ContactsTab() }.macColumn()
                 .tabItem { Label("Contacts", systemImage: "person.2") }.tag(MainTab.contacts)
-            NavigationStack { SettingsView() }
+            NavigationStack { SettingsView() }.macColumn()
                 .tabItem { Label("Settings", systemImage: "gearshape") }.tag(MainTab.settings)
         }
         .tint(.white)

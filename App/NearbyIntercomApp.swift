@@ -15,6 +15,8 @@ struct NearbyIntercomApp: App {
                     for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
                         scene.titlebar?.titleVisibility = .hidden
                         scene.titlebar?.toolbar = nil
+                        // Narrower than this the split view goes compact and hides the sidebar with no way back.
+                        scene.sizeRestrictions?.minimumSize = CGSize(width: 760, height: 520)
                     }
                     #endif
                     model.start()

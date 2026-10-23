@@ -64,7 +64,7 @@ Pas de version compilée : vous la compilez sur votre Mac et la signez avec votr
 - Appels manqués : une pastille sur Calls, Recent s'ouvre tout seul, lignes manquées en rouge comme dans l'app Téléphone.
 - Renommer un contact vérifié (un nom local seulement).
 - Un bouton Accepter vert, et un pictogramme de personne au lieu d'un chiffre pour les correspondants sans nom.
-- **Expérimental, désactivé par défaut :** « Reachable in the background » (Settings › Experiments). Un iPhone en arrière-plan garde une balise Bluetooth fixe, et les iPhone et Mac proches lisent son annonce en GATT : ils peuvent encore l'appeler, et l'appel sonne en notification. Android ne voit pas un iPhone en arrière-plan, et une app fermée ne peut pas sonner. Pas encore essayé sur appareil.
+- **Expérimental, désactivé par défaut :** « Reachable in the background » (Settings › Experiments). Un iPhone en arrière-plan garde une balise Bluetooth fixe, et les iPhone et Mac proches lisent son annonce en GATT : ils peuvent encore l'appeler, et l'appel sonne en notification. Android ne voit pas un iPhone en arrière-plan, et une app fermée ne peut pas sonner. Essayé à la main : un Mac qui appelle un iPhone en arrière-plan.
 
 ## État
 
@@ -72,7 +72,7 @@ Pas de version compilée : vous la compilez sur votre Mac et la signez avec votr
 | --- | --- | --- |
 | Appels voix et vidéo | essayés à la main, un Mac, un iPhone | pas essayés ici (voir [l'état du projet d'origine](https://github.com/MeshLive/meshlive-ios#status)) |
 | Go live et visionnage | essayés à la main | pas essayés ici |
-| Joignable en arrière-plan | construit, tests unitaires verts, pas essayé sur appareil | impossible : iOS cache à Android un iPhone en arrière-plan |
+| Joignable en arrière-plan | essayé à la main : un Mac qui appelle un iPhone en arrière-plan | impossible : iOS cache à Android un iPhone en arrière-plan |
 
 - Les 175 tests du cœur, des médias et du protocole passent (`bash Scripts/test.sh`).
 - L'app Mac demande Apple silicon : les codecs n'ont pas de tranche Catalyst Intel.

@@ -64,7 +64,7 @@ English · [Français](README.fr.md)
 - Missed calls: a badge on Calls, Recent opens on its own, missed rows in red as in the Phone app.
 - Rename a verified contact (a local label only).
 - A green Accept button, and a person glyph instead of a digit for peers without a name.
-- **Experimental, off by default:** "Reachable in the background" (Settings › Experiments). A backgrounded iPhone keeps a fixed Bluetooth beacon, and nearby iPhones and Macs read its announcement over GATT, so they can still call it and it rings as a notification. Android cannot see a backgrounded iPhone, and a closed app cannot ring. Not yet tried on hardware.
+- **Experimental, off by default:** "Reachable in the background" (Settings › Experiments). A backgrounded iPhone keeps a fixed Bluetooth beacon, and nearby iPhones and Macs read its announcement over GATT, so they can still call it and it rings as a notification. Android cannot see a backgrounded iPhone, and a closed app cannot ring. Tried by hand: one Mac calling a backgrounded iPhone.
 - **Experimental, off by default:** "iPhone call screen" (Settings › Experiments). A call that rings while MeshLive is in the background shows the native call screen (CallKit): lock screen, Dynamic Island, system ringtone, AirPods. No PushKit, so a closed app still cannot ring. These calls also appear in the Phone app's Recents.
 
 ## Status
@@ -73,7 +73,7 @@ English · [Français](README.fr.md)
 | --- | --- | --- |
 | Voice and video calls | tried by hand, one Mac, one iPhone | not tried here (see [upstream status](https://github.com/MeshLive/meshlive-ios#status)) |
 | Go live and watch | tried by hand | not tried here |
-| Background reachability | built, unit tests pass, not tried on hardware | impossible: iOS hides a backgrounded iPhone from Android |
+| Background reachability | tried by hand: one Mac calling a backgrounded iPhone | impossible: iOS hides a backgrounded iPhone from Android |
 | iPhone call screen (CallKit) | tried by hand: one Mac calling a backgrounded iPhone, voice and video answered on the native screen | not tried here |
 
 - The 181 core, media and protocol tests pass (`bash Scripts/test.sh`).

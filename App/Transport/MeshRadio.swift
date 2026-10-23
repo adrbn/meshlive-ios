@@ -229,13 +229,13 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
         peripheral.delegate = self
         AppLog.event("beacon", ["stage": "read_start", "rssi": "\(rssi)"])
         central.connect(peripheral, options: nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.endBeaconRead(id, nil) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.endBeaconRead(id, nil, "timeout") }
     }
 
-    private func endBeaconRead(_ id: UUID, _ announcement: DiscoveryAnnouncement?) {
+    private func endBeaconRead(_ id: UUID, _ announcement: DiscoveryAnnouncement?, _ why: String = "") {
         guard let peripheral = beaconReads.removeValue(forKey: id) else { return }
         if attempts[id] == nil && clientLinks[id] == nil { central.cancelPeripheralConnection(peripheral) }
-        AppLog.event("beacon", ["stage": announcement == nil ? "read_failed" : "read", "prefix": announcement?.prefixHex ?? "-"])
+        AppLog.event("beacon", ["stage": announcement == nil ? "read_failed" : "read", "prefix": announcement?.prefixHex ?? "-", "why": why])
         guard let announcement else { return }
         let now = ProcessInfo.processInfo.systemUptime
         beaconAnnouncements[id] = (announcement, now)
@@ -449,12 +449,12 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        endBeaconRead(peripheral.identifier, nil)
+        endBeaconRead(peripheral.identifier, nil, "connect: \(error?.localizedDescription ?? "unknown")")
         failAttempt(peripheral.identifier, "Could not connect: \(error?.localizedDescription ?? "unknown")")
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        endBeaconRead(peripheral.identifier, nil)
+        endBeaconRead(peripheral.identifier, nil, "disconnected: \(error?.localizedDescription ?? "none")")
         AppLog.event("disconnect", ["error": error?.localizedDescription ?? "none", "hadClientLink": "\(clientLinks[peripheral.identifier] != nil)"])
         failAttempt(peripheral.identifier, "Disconnected during setup")
         if let link = clientLinks.removeValue(forKey: peripheral.identifier) { link.fail("Bluetooth link lost") }
@@ -463,7 +463,7 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         if beaconReads[peripheral.identifier] != nil {
             guard let service = peripheral.services?.first(where: { $0.uuid == CBUUID(string: MeshUUIDs.controlService) }) else {
-                endBeaconRead(peripheral.identifier, nil); return
+                endBeaconRead(peripheral.identifier, nil, "no service: \(error?.localizedDescription ?? "none")"); return
             }
             peripheral.discoverCharacteristics([CBUUID(string: MeshUUIDs.announcementCharacteristic)], for: service)
             return
@@ -482,7 +482,7 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         if beaconReads[peripheral.identifier] != nil {
             guard let c = service.characteristics?.first(where: { $0.uuid == CBUUID(string: MeshUUIDs.announcementCharacteristic) }) else {
-                endBeaconRead(peripheral.identifier, nil); return
+                endBeaconRead(peripheral.identifier, nil, "no characteristic"); return
             }
             peripheral.readValue(for: c)
             return
@@ -530,7 +530,8 @@ final class MeshRadio: NSObject, CBCentralManagerDelegate, CBPeripheralManagerDe
         if characteristic.uuid == CBUUID(string: MeshUUIDs.announcementCharacteristic) {
             let value = characteristic.value ?? Data()
             let uuid = value.count == 16 ? NSUUID(uuidBytes: [UInt8](value)).uuidString : ""
-            endBeaconRead(peripheral.identifier, error == nil ? CompactAnnouncement.decode(uuid, acceptRotating: acceptRotating) : nil)
+            endBeaconRead(peripheral.identifier, error == nil ? CompactAnnouncement.decode(uuid, acceptRotating: acceptRotating) : nil,
+                          "read: \(error?.localizedDescription ?? "bytes=\(value.count)")")
             return
         }
         guard characteristic.uuid == CBUUID(string: MeshUUIDs.psmCharacteristic), attempts[peripheral.identifier] != nil else { return }

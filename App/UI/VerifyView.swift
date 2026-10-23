@@ -7,7 +7,9 @@ import NearbyCore
 struct VerifyView: View {
     @EnvironmentObject var model: AppModel
     @State private var scanning = false
-    @State private var result: String?
+    /// The scan outcome, shown as an alert once the scanner sheet has closed (a line under the button went unseen).
+    @State private var result: (title: String, message: String)?
+    @State private var showResult = false
 
     var body: some View {
         ScrollView {
@@ -36,10 +38,9 @@ struct VerifyView: View {
                     .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.top, 8)
-                CapsuleButton(title: "Scan their code", systemImage: AppIcon.scan, kind: .white) { scanning = true }
+                CapsuleButton(title: "Scan their code", systemImage: AppIcon.scan, kind: .white) { result = nil; scanning = true }
                     .disabled(model.call != nil)
                     .padding(.top, 8)
-                if let result { Text(result).font(.subheadline).foregroundStyle(Palette.ink) }
                 CardNote("Call or watch them first, so this phone has checked their key; then scan.")
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24)
@@ -47,18 +48,23 @@ struct VerifyView: View {
         .background(Palette.ground.ignoresSafeArea())
         .navigationTitle("Add contact")
         .navigationBarTitleDisplayMode(.large)
-        .sheet(isPresented: $scanning) {
+        .alert(result?.title ?? "", isPresented: $showResult) { Button("OK") {} } message: { Text(result?.message ?? "") }
+        .sheet(isPresented: $scanning, onDismiss: { showResult = result != nil }) {
             QRScannerView { text in
-                scanning = false
                 do {
                     let payload = try IdentityQrCodec.parse(text)
                     try model.markVerified(scanned: payload)
-                    result = "\(payload.displayName) is now verified."
+                    result = ("\(payload.displayName) added", "They are now in Contacts, verified.")
                 } catch let error as ProtocolError where error == .state("No authenticated session with this peer") {
-                    result = "Connect to this person first (call or stream), then scan again."
+                    result = ("Not added yet", "Call this person or watch their live first, so this phone has checked their key. Then scan their code again.")
+                } catch let error as ProtocolError where error == .authentication {
+                    result = ("Not added", "This code doesn't match the phone you connected to. Check that you scanned the right screen.")
+                } catch ProtocolError.state(let message) {
+                    result = ("Not added", message)
                 } catch {
-                    result = "Not verified: \(error)"
+                    result = ("Not added", "\(error)")
                 }
+                scanning = false
             }
         }
     }

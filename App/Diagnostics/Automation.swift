@@ -21,6 +21,7 @@ import NearbyCore
 /// - `-NearbyAutoListen first|<handle>|<12-hex prefix>` and `-NearbyListenSeconds N` (default 60): join an
 ///   audio-only (radio) stream only; logs `auto_listen` with the verified record count at the end.
 /// - `-NearbyTransport gatt|l2cap`: transport to advertise; `-NearbyLabels 1`: experimental names and titles.
+/// - `-NearbyBackgroundReachable 1|0` and `-NearbyCallKit 1|0`: the experiments of the same name.
 /// Every step is logged as `BENCHMARK auto_*`.
 final class Automation {
     let args: [String: String]
@@ -62,6 +63,7 @@ final class Automation {
         if let available = args["Available"] { model?.availableForCalls = available == "1" }
         if let rot = args["RotatingIds"] { model?.rotatingIds = rot == "1" }
         if let fec = args["CallAudioFec"] { AppSettings.callAudioFec = fec == "1" }
+        if let callKit = args["CallKit"] { AppSettings.callKit = callKit == "1" }
         if let bg = args["BackgroundReachable"] { AppSettings.backgroundReachable = bg == "1"; model?.radio.beaconScan = bg == "1" }
         if let ladder = args["ResolutionLadder"] { AppSettings.resolutionLadder = ladder == "1" }
         if args["RequestPermissions"] == "1" { MediaPermissions.request(video: true, context: "launch") { _, _ in } }
